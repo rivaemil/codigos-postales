@@ -11,11 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('direcciones', function (Blueprint $table) {
+        Schema::create('consultas', function (Blueprint $table) {
             $table->id();
             $table->string('estado');
             $table->string('municipio');
-            $table->string('localidad');
             $table->string('colonia');
             $table->string('codigo_postal');
             $table->timestamps();
@@ -27,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('direcciones');
+        Schema::dropIfExists('consultas');
     }
 };

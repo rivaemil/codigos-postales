@@ -4,96 +4,101 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
-use App\Models\{Estado, Consulta};
+use App\Models\Consulta;
 
 class ConsultaController extends Controller
 {
-    // Mostrar el historial de consultas
     public function index()
     {
-        // Obtener todos los estados desde la API de Copomex
         $estados = $this->getEstadosFromApi();
-        $estados = Estado::all();
-
-        // Obtener todas las consultas ordenadas por fecha de creación
         $consultas = Consulta::latest()->get();
-
-        // Pasar las variables $estados y $consultas a la vista
         return view('direccion', compact('estados', 'consultas'));
     }
 
-    // Almacenar una nueva consulta
     public function store(Request $request)
     {
         $request->validate([
             'estado' => 'required|string',
             'municipio' => 'required|string',
-            'localidad' => 'required|string',
-            'codigo_postal' => 'required|string|max:5',
-            'colonia' => 'required|string'
+            'colonia' => 'required|string',
+            'codigo_postal' => 'required|string'
         ]);
 
-        Consulta::create($request->all());
+        Consulta::create([
+            'estado' => $request->estado,
+            'municipio' => $request->municipio,
+            'colonia' => $request->colonia,
+            'codigo_postal' => $request->codigo_postal
+        ]);
 
-        return response()->json(['success' => 'Consulta almacenada']);
+        return response()->json(['success' => true]);
     }
 
-    // Eliminar una consulta
     public function destroy($id)
     {
-        Consulta::findOrFail($id)->delete();
-        return redirect()->route('consultas.index')->with('success', 'Consulta eliminada');
+        $consulta = Consulta::find($id);
+        
+        if ($consulta) {
+            $consulta->delete();
+            return response()->json(['success' => true]);
+        }
+
+        return response()->json(['success' => false, 'message' => 'Consulta no encontrada']);
     }
 
-    // Método para obtener estados desde la API de Copomex
+
     private function getEstadosFromApi()
     {
         $token = env('COPOMEX_API_KEY');
         $response = Http::get("https://api.copomex.com/query/get_estados?token={$token}");
 
         if ($response->successful()) {
-            return $response->json();
+            $data = $response->json();
+            return $data['response']['estado'] ?? []; // Extraer el array de estados
         }
 
         return [];
     }
 
-    // Método para obtener municipios por estado desde la API de Copomex
     public function getMunicipios($estado)
     {
         $token = env('COPOMEX_API_KEY');
-        $response = Http::get("https://api.copomex.com/query/get_municipios_por_estado/{$estado}?token={$token}");
+        $response = Http::get("https://api.copomex.com/query/get_municipio_por_estado/{$estado}?token={$token}");
 
         if ($response->successful()) {
-            return $response->json();
+            $data = $response->json();
+            return $data['response']['municipios'] ?? []; // Extraer el array de municipios
         }
 
         return [];
     }
-
-    // Método para obtener localidades por municipio desde la API de Copomex
-    public function getLocalidades($municipio)
+    
+    public function getColonias($municipio)
     {
         $token = env('COPOMEX_API_KEY');
-        $response = Http::get("https://api.copomex.com/query/get_localidades_por_municipio/{$municipio}?token={$token}");
+        $response = Http::get("https://api.copomex.com/query/get_colonia_por_municipio/{$municipio}?token={$token}");
 
         if ($response->successful()) {
-            return $response->json();
+            $data = $response->json();
+            return $data['response']['colonia'] ?? []; // Ajusta según la estructura de la respuesta
         }
 
         return [];
     }
 
-    // Método para obtener colonias por código postal desde la API de Copomex
-    public function getColonias($codigoPostal)
+    public function getCodigoPostal($estado,$municipio,$colonia)
     {
         $token = env('COPOMEX_API_KEY');
-        $response = Http::get("https://api.copomex.com/query/get_colonias_por_cp/{$codigoPostal}?token={$token}");
+        $response = Http::get("https://api.copomex.com/query/get_cp_advanced/{$estado}?limit=10&municipio={$municipio}&colonia={$colonia}&token={$token}");
 
         if ($response->successful()) {
-            return $response->json();
+            $data = $response->json();
+            $codigo_postal = $data['response']['cp'][0] ?? ''; 
+    
+            return response()->json(['codigo_postal' => $codigo_postal]);
         }
-
-        return [];
+    
+        return response()->json(['codigo_postal' => '']);
     }
+
 }
